@@ -100,8 +100,7 @@ function solve_point {
   local zi="${4}";
   local zlsquared=0;
   #printf "solving %d %d\n" $cr $ci
-  local running=1;
-  while [ ${running} -gt 0 ]; do
+  while [ true ]; do
     local ztr=$((((${zr}**2)-(${zi}**2))/${decimal_scale}));
     local zti=$(((2*${zr}*${zi})/${decimal_scale}));
     let zr=ztr+cr;
@@ -112,15 +111,14 @@ function solve_point {
     #printf "escape_threshold_squared is now %d\n" $escape_threshold_squared
     #printf "iter_limit is now %d\n" $iter_limit
     let iters_so_far=iters_so_far+1;
-    running=$(((${zlsquared} < ${escape_threshold_squared}) && (${iters_so_far} < ${iter_limit})))
-    #printf "running is now %d\n" $running
+    if [ ${zlsquared} -gt ${escape_threshold_squared} ]; then
+      echo "${iters_so_far}";
+      return;
+    elif ! [ ${iters_so_far} -lt ${iter_limit} ]; then
+      echo '0';
+      return;
+    fi
   done
-  #printf "returning %d\n" $iters
-  #printf "\n running=%s\n" $running
-  if [ $((${iters_so_far} < ${iter_limit})) -lt 1 ]; then
-    return 0;
-  fi
-  return ${iters_so_far};
 }
 
 
@@ -151,9 +149,12 @@ function print_value {
   #  char_to_print=" "
   #else
   #fi
-  
-  local char_to_print=${shades_arr[${shade_index}]};
-  #char_to_print=${char_to_print/./${TRAPPED_CHAR}}
+  if [ ${shade_index} -eq 0 ]; then
+    local char_to_print=' ';
+  else
+    local char_to_print=${shades_arr[${shade_index}]};
+  fi
+  # char_to_print=${char_to_print/./${TRAPPED_CHAR}}
   printf '%s%s%s' $'\e[1;29m' "${char_to_print}" $'\e[0m';
 
 }
@@ -163,9 +164,9 @@ function print_value {
 
 function render {
 
-  local camera_r=${1};
-  local camera_i=${2};
-  local travel=${3};
+  local camera_r="${1}";
+  local camera_i="${2}";
+  local travel="${3}";
 
   local pixel_y=0;
   while [ ${pixel_y} -lt ${screen_height} ]; do
@@ -175,8 +176,9 @@ function render {
     while [ ${pixel_x} -lt ${screen_width} ]; do
       local real_x=$((${pixel_x}-(${screen_width}/2)));
       local pixel_r=$((${camera_r}+((${real_x}*${travel})/${screen_width})));
-      solve_point ${pixel_r} ${pixel_i} 0 0;
-      print_value ${?};
+      local pixel_iters="$(solve_point ${pixel_r} ${pixel_i} 0 0)";
+      print_value ${pixel_iters};
+      # printf '%s' "${pixel_iters}";
       let pixel_x=pixel_x+1;
     done
     printf ' %d %d\n' ${pixel_i} ${pixel_y};
